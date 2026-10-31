@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>O Fantasma da Mansão 3D — Trilogia do Terror</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js 3D Engine (Local com fallback para CDN) -->
+  <script src="three.min.js"></script>
+  <script>
+    if (typeof THREE === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+    }
+  </script>
+  <!-- PeerJS WebRTC P2P Multiplayer -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    body, html {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      overflow: hidden; background-color: #030307;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      touch-action: none;
+      color: #f4f4f5;
+    }
+    #three-canvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 1; display: block; outline: none;
+    }
+    .hud-overlay {
+      position: absolute; pointer-events: none; z-index: 10;
+    }
+    .hud-interactive {
+      pointer-events: auto;
+    }
+    .danger-vignette {
+      box-shadow: inset 0 0 100px 35px rgba(239, 68, 68, 0.7);
+      animation: pulse-danger 1.2s infinite ease-in-out;
+    }
+    .frozen-vignette {
+      box-shadow: inset 0 0 110px 40px rgba(56, 189, 248, 0.75);
+    }
+    @keyframes pulse-danger {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+    .glass-card {
+      background: rgba(18, 18, 26, 0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .glass-pill {
+      background: rgba(12, 12, 20, 0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+    }
+    #lobby-screen {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 30; display: flex; align-items: center; justify-content: center;
+      background-color: rgba(9, 9, 11, 0.92);
+    }
+    #game-hud {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 20; pointer-events: none;
+    }
+    #gameover-modal {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 40;
+    }
+    .z-10 { z-index: 10; }
+    .z-20 { z-index: 20; }
+    .z-30 { z-index: 30; }
+    .z-40 { z-index: 40; }
+
+    /* Fallback completo para suporte offline sem Tailwind */
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .flex-row { flex-direction: row; }
+    .items-center { align-items: center; }
+    .items-end { align-items: flex-end; }
+    .justify-between { justify-content: space-between; }
+    .justify-center { justify-content: center; }
+    .hidden { display: none !important; }
+    .absolute { position: absolute; }
+    .relative { position: relative; }
+    .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+    .w-full { width: 100%; }
+    .h-full { height: 100%; }
+    .w-1\/3 { width: 33.333333%; }
+    .w-2\/3 { width: 66.666667%; }
+    .w-1\/2 { width: 50%; }
+    .max-w-4xl { max-width: 56rem; width: 100%; }
+    .max-w-md { max-width: 28rem; width: 100%; }
+    .gap-1\.5 { gap: 0.375rem; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-2\.5 { gap: 0.625rem; }
+    .gap-3 { gap: 0.75rem; }
+    .gap-4 { gap: 1rem; }
+    .gap-5 { gap: 1.25rem; }
+    .p-3 { padding: 0.75rem; }
+    .p-4 { padding: 1rem; }
+    .p-5 { padding: 1.25rem; }
+    .p-6 { padding: 1.5rem; }
+    .px-2\.5 { padding-left: 0.625rem; padding-right: 0.625rem; }
+    .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+    .px-3\.5 { padding-left: 0.875rem; padding-right: 0.875rem; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .px-8 { padding-left: 2rem; padding-right: 2rem; }
+    .py-0\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+    .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+    .py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    .py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+    .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+    .rounded-lg { border-radius: 0.5rem; }
+    .rounded-xl { border-radius: 0.75rem; }
+    .rounded-2xl { border-radius: 1rem; }
+    .rounded-3xl { border-radius: 1.5rem; }
+    .rounded-full { border-radius: 9999px; }
+    .border { border-width: 1px; border-style: solid; }
+    .border-b { border-bottom-width: 1px; border-bottom-style: solid; }
+    .border-t { border-top-width: 1px; border-top-style: solid; }
+    .border-zinc-800 { border-color: #27272a; }
+    .border-zinc-700 { border-color: #3f3f46; }
+    .border-amber-400 { border-color: #fbbf24; }
+    .border-amber-500\/40 { border-color: rgba(245, 158, 11, 0.4); }
+    .border-purple-500\/40 { border-color: rgba(168, 85, 247, 0.4); }
+    .border-white\/10 { border-color: rgba(255, 255, 255, 0.1); }
+    .border-white\/15 { border-color: rgba(255, 255, 255, 0.15); }
+    .bg-zinc-950 { background-color: #09090b; }
+    .bg-zinc-950\/90 { background-color: rgba(9, 9, 11, 0.94); }
+    .bg-zinc-900 { background-color: #18181b; }
+    .bg-zinc-900\/70 { background-color: rgba(24, 24, 27, 0.75); }
+    .bg-zinc-800 { background-color: #27272a; }
+    .bg-purple-600 { background-color: #9333ea; }
+    .bg-amber-500 { background-color: #f59e0b; }
+    .bg-emerald-600 { background-color: #059669; }
+    .bg-cyan-500 { background-color: #06b6d4; }
+    .text-white { color: #ffffff; }
+    .text-zinc-100 { color: #f4f4f5; }
+    .text-zinc-200 { color: #e4e4e7; }
+    .text-zinc-300 { color: #d4d4d8; }
+    .text-zinc-400 { color: #a1a1aa; }
+    .text-zinc-600 { color: #52525b; }
+    .text-amber-300 { color: #fcd34d; }
+    .text-amber-400 { color: #fbbf24; }
+    .text-purple-300 { color: #d8b4fe; }
+    .text-purple-400 { color: #c084fc; }
+    .text-emerald-400 { color: #34d399; }
+    .text-xs { font-size: 0.75rem; line-height: 1rem; }
+    .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+    .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+    .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+    .font-medium { font-weight: 500; }
+    .font-semibold { font-weight: 600; }
+    .font-bold { font-weight: 700; }
+    .font-extrabold { font-weight: 800; }
+    .font-black { font-weight: 900; }
+    .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .uppercase { text-transform: uppercase; }
+    .tracking-tight { letter-spacing: -0.025em; }
+    .tracking-wider { letter-spacing: 0.05em; }
+    .tracking-wide { letter-spacing: 0.025em; }
+    .grid { display: grid; }
+    .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+    .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6); }
+    .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); }
+    .overflow-y-auto { overflow-y: auto; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .text-center { text-align: center; }
+    button { cursor: pointer; border: none; font-family: inherit; }
+    input, select { font-family: inherit; outline: none; }
+    @media (min-width: 640px) {
+      .sm\:p-5 { padding: 1.25rem; }
+      .sm\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .sm\:flex-row { flex-direction: row; }
+      .sm\:w-auto { width: auto; }
+    }
+    @media (min-width: 768px) {
+      .md\:p-8 { padding: 2rem; }
+      .md\:text-2xl { font-size: 1.5rem; line-height: 2rem; }
+      .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .md\:flex { display: flex !important; }
+    }
+  </style>
+</head>
+<body class="w-full h-full text-zinc-100 flex flex-col justify-between">
+
+  <!-- 3D CANVAS DO THREE.JS -->
+  <canvas id="three-canvas"></canvas>
+
+  <!-- VINHETA DE ALERTA VISUAL (BATIMENTO CARDÍACO / CONGELAMENTO) -->
+  <div id="screen-vignette" class="hud-overlay inset-0 transition-opacity duration-300"></div>
+
+  <!-- ======================================================================== -->
+  <!-- 1. TELA DE LOBBY / CONFIGURAÇÃO DA PARTIDA -->
+  <!-- ======================================================================== -->
+  <div id="lobby-screen" class="absolute inset-0 z-30 flex items-center justify-center p-3 sm:p-5 overflow-y-auto bg-zinc-950/90 backdrop-blur-md">
+    <div class="w-full max-w-4xl glass-card rounded-3xl shadow-2xl p-5 md:p-8 flex flex-col gap-5 border border-zinc-700/60">
+      
+      <!-- Cabeçalho -->
+      <div class="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-amber-500 flex items-center justify-center text-2xl shadow-lg shadow-purple-500/25">
+            👻
+          </div>
+          <div>
+            <h1 class="text-xl md:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              O Fantasma da Mansão <span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">EDIÇÃO 3D</span>
+            </h1>
+            <p class="text-xs text-zinc-400">Terror Multiplayer 3v1 em Primeira & Terceira Pessoa • PC & Celulares</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <a href="index.html" class="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 transition flex items-center gap-1.5 no-underline">
+            🕹️ Modo 2D
+          </a>
+          <button id="btn-sound" onclick="toggleAudio()" class="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 transition">
+            🔊 Som: Ligado
+          </button>
+          <button onclick="tryAutoFullscreen()" class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition">
+            ⛶ Tela Cheia
+          </button>
+        </div>
+      </div>
+
+      <!-- Configuração de Jogador & Papel -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        
+        <!-- Bloco 1: Nome e Papel -->
+        <div class="p-4 rounded-2xl bg-zinc-900/70 border border-zinc-800/80 flex flex-col gap-3">
+          <label class="text-xs font-bold text-zinc-400 uppercase tracking-wider">1. Seu Perfil e Papel</label>
+          <input type="text" id="player-name" maxlength="14" placeholder="Seu Nome" oninput="updateMyProfile()"
+            class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-amber-400 transition" />
+          
+          <div class="grid grid-cols-2 gap-2 mt-1">
+            <button id="btn-role-hunter" onclick="selectRole('hunter')"
+              class="py-2.5 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-lg shadow-amber-500/10">
+              🔦 Caçador
+            </button>
+            <button id="btn-role-ghost" onclick="selectRole('ghost')"
+              class="py-2.5 px-3 rounded-xl border border-zinc-800 text-zinc-400 hover:text-white transition flex items-center justify-center gap-1.5">
+              👻 Fantasma
+            </button>
+          </div>
+
+          <!-- Câmera Preferida -->
+          <div class="flex items-center justify-between pt-1 border-t border-zinc-800/60 text-xs">
+            <span class="text-zinc-400">Câmera 3D:</span>
+            <div class="flex gap-1.5">
+              <button id="btn-cam-tps" onclick="setCameraMode('tps')" class="px-2.5 py-1 rounded-lg bg-zinc-800 text-amber-300 font-bold border border-amber-400/40">3ª Pessoa</button>
+              <button id="btn-cam-fps" onclick="setCameraMode('fps')" class="px-2.5 py-1 rounded-lg bg-zinc-900 text-zinc-400 font-medium">1ª Pessoa</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bloco 2: Conectar Celulares / Modo P2P -->
+        <div class="p-4 rounded-2xl bg-zinc-900/70 border border-zinc-800/80 flex flex-col justify-between gap-3">
+          <div>
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-zinc-400 uppercase tracking-wider">2. Conectar Celulares (P2P)</label>
+              <span id="p2p-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 font-mono">Modo Local</span>
+            </div>
+            <p class="text-xs text-zinc-400 mt-1">Abra este link nos celulares dos seus filhos e digite o código da sala para jogar juntos sem instalar nada!</p>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <button id="btn-host-code" onclick="createP2PHostRoom()" class="w-full py-2.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2">
+              💻 Criar Código da Sala neste PC (Host)
+            </button>
+            <div class="flex gap-2">
+              <input type="text" id="join-code-input" maxlength="4" placeholder="CÓDIGO (EX: 4821)" class="w-2/3 bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-center text-white font-mono uppercase focus:outline-none focus:border-purple-400" />
+              <button onclick="joinP2PRoom()" class="w-1/3 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition">
+                Entrar
+              </button>
+            </div>
+            <p id="p2p-status-msg" class="text-[11px] text-zinc-400 text-center font-mono h-4 truncate"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bloco 3: Jogadores na Sala & Iniciar -->
+      <div class="p-4 rounded-2xl bg-zinc-900/70 border border-zinc-800/80 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Jogadores na Sala (<span id="player-count">4</span>/6)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="sendLobbyCommand('add_bot')" class="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-300 transition">
+              + Bot IA
+            </button>
+            <button onclick="sendLobbyCommand('clear_bots')" class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-400 transition">
+              Limpar Bots
+            </button>
+          </div>
+        </div>
+
+        <div id="players-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto pr-1">
+          <!-- Renderizado via JavaScript -->
+        </div>
+
+        <!-- Seletor de Fase & Botão Iniciar -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-zinc-800">
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <span class="text-xs text-zinc-400">Cenário:</span>
+            <select id="stage-selector" onchange="changeLobbyStage(this.value)" class="bg-zinc-950 border border-zinc-700 text-xs text-zinc-200 rounded-xl px-3 py-2 focus:outline-none">
+              <option value="random">🎲 Sorteio Automático (3 Fases)</option>
+              <option value="0">🏰 Fase 1: Mansão Gótica 3D</option>
+              <option value="1">🏥 Fase 2: Hospital Sombrio 3D</option>
+              <option value="2">⚰️ Fase 3: Catacumbas & Criptas 3D</option>
+            </select>
+          </div>
+
+          <button onclick="startMatch3D()" class="w-full sm:w-auto px-8 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-zinc-950 font-black text-sm tracking-wide shadow-xl shadow-amber-500/25 transition transform active:scale-95 flex items-center justify-center gap-2">
+            ▶ INICIAR PARTIDA 3D
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ======================================================================== -->
+  <!-- 2. HUD EM TEMPO REAL DURANTE A PARTIDA 3D -->
+  <!-- ======================================================================== -->
+  <div id="game-hud" class="hidden hud-overlay inset-0 flex flex-col justify-between p-3 pointer-events-none">
+    
+    <!-- Top Bar -->
+    <header class="w-full flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 glass-pill px-3 py-1.5 rounded-2xl shadow-lg border border-white/10">
+        <span id="hud-stage-name" class="text-xs font-extrabold text-amber-300">🏰 Mansão Gótica 3D</span>
+        <span class="text-zinc-600">•</span>
+        <span id="hud-role-badge" class="text-xs font-bold text-amber-400">🔦 Caçador</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Relíquias / Tesouros -->
+        <div class="glass-pill px-3 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-lg border border-white/10">
+          <span class="text-xs">💎</span>
+          <span id="hud-relics-text" class="text-xs font-extrabold text-white">0/8</span>
+        </div>
+
+        <!-- Geradores -->
+        <div class="glass-pill px-3 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-lg border border-white/10">
+          <span class="text-xs">⚡</span>
+          <span id="hud-gens-text" class="text-xs font-extrabold text-emerald-400">0/2</span>
+        </div>
+
+        <!-- Timer -->
+        <div class="glass-pill px-3 py-1.5 rounded-2xl flex items-center gap-1.5 shadow-lg border border-white/10">
+          <span class="text-xs">⏳</span>
+          <span id="hud-timer" class="text-xs font-mono font-black text-white">03:00</span>
+        </div>
+
+        <button onclick="exitToLobby()" class="hud-interactive glass-pill px-2.5 py-1.5 rounded-2xl hover:bg-zinc-800 text-xs font-medium text-zinc-300 transition">
+          ⏹ Sala
+        </button>
+      </div>
+    </header>
+
+    <!-- Mini Radar de Proximidade (Canto Superior Direito) -->
+    <div id="hud-radar" class="hud-overlay top-14 right-3 w-28 h-28 rounded-full border border-white/15 bg-black/50 backdrop-blur-md overflow-hidden flex items-center justify-center shadow-xl">
+      <div class="absolute inset-0 border border-white/5 rounded-full scale-50"></div>
+      <div class="absolute inset-0 border border-white/5 rounded-full scale-75"></div>
+      <div class="w-1.5 h-1.5 rounded-full bg-white shadow-sm z-10"></div>
+      <div id="radar-blips-container" class="absolute inset-0"></div>
+      <span class="absolute bottom-1 text-[9px] font-bold text-zinc-400">RADAR</span>
+    </div>
+
+    <!-- Notificações Toast no Centro Superior -->
+    <div class="w-full flex justify-center pointer-events-none">
+      <div id="hud-toast" class="hidden glass-pill px-4 py-2 rounded-2xl text-xs font-bold text-white shadow-2xl border border-amber-400/40 animate-bounce">
+        Aviso da Mansão
+      </div>
+    </div>
+
+    <!-- Barra Inferior de Ações e Controles -->
+    <footer class="w-full flex items-end justify-between gap-3 pointer-events-none">
+      
+      <!-- Lado Esquerdo: Joystick Touch de Andar (Celular) OU Dica de Teclado (PC) -->
+      <div class="pointer-events-auto">
+        <!-- Touch Stick Andar -->
+        <div id="stick-left-zone" class="hidden relative w-24 h-24 rounded-full border-2 border-white/20 bg-black/40 backdrop-blur-md flex items-center justify-center touch-none shadow-xl">
+          <div id="stick-left-knob" class="w-10 h-10 rounded-full bg-white/40 border border-white/70 shadow-md"></div>
+          <span class="absolute -top-4 text-[10px] font-extrabold text-white/70 tracking-wider">ANDAR</span>
+        </div>
+
+        <!-- Teclado PC Helper -->
+        <div id="pc-keys-help" class="hidden md:flex flex-col gap-1 glass-pill px-3 py-2 rounded-2xl text-[11px] text-zinc-300 border border-white/10">
+          <div>🎮 <strong>WASD / Setas</strong>: Mover</div>
+          <div>🖱️ <strong>Mouse</strong>: Girar Câmera / Mirar Lanterna</div>
+          <div>⚡ <strong>Espaço</strong>: Turbo | ⛓️ <strong>Q / 2</strong>: Travar Fantasma</div>
+          <div>📷 <strong>C</strong>: Alternar 1ª / 3ª Pessoa</div>
+        </div>
+      </div>
+
+      <!-- Lado Direito: Bateria / Habilidades / Botões de Ação -->
+      <div class="pointer-events-auto flex flex-col items-end gap-2.5">
+        
+        <!-- Bateria da Lanterna (Caçador) / Energia do Fantasma -->
+        <div class="glass-pill px-3 py-1.5 rounded-2xl flex items-center gap-2 border border-white/10 shadow-lg">
+          <span id="hud-energy-icon">🔋</span>
+          <div class="w-24 bg-zinc-800 rounded-full h-2.5 overflow-hidden">
+            <div id="hud-energy-bar" class="bg-gradient-to-r from-emerald-500 to-green-400 h-full w-full transition-all duration-200"></div>
+          </div>
+          <span id="hud-energy-val" class="text-xs font-mono font-bold text-emerald-400">100%</span>
+        </div>
+
+        <!-- Botões Touch para Celulares -->
+        <div id="touch-actions-container" class="flex items-end gap-2.5">
+          
+          <!-- Botão Trava Caçador (3x Cargas) -->
+          <button id="btn-touch-stun" onclick="triggerHunterStun()" class="px-3 py-2.5 rounded-2xl bg-cyan-500 active:bg-cyan-400 border border-cyan-200 shadow-xl flex flex-col items-center justify-center text-zinc-950 font-black text-xs transition">
+            <span class="text-base leading-none">⛓️</span>
+            <span id="btn-touch-stun-label" class="text-[10px] font-black">Travar (3x)</span>
+          </button>
+
+          <!-- Botão Turbo Caçador -->
+          <button id="btn-touch-turbo" onpointerdown="setTurboActive(true)" onpointerup="setTurboActive(false)" onpointercancel="setTurboActive(false)" class="w-13 h-13 px-3 py-2.5 rounded-2xl bg-amber-500 active:bg-amber-400 border border-amber-200 shadow-xl flex flex-col items-center justify-center text-zinc-950 font-black text-xs transition">
+            <span class="text-base leading-none">⚡</span>
+            <span class="text-[10px] font-black">Turbo</span>
+          </button>
+
+          <!-- Touch Stick Mirar Câmera / Lanterna -->
+          <div id="stick-right-zone" class="relative w-24 h-24 rounded-full border-2 border-amber-400/30 bg-amber-950/30 backdrop-blur-md flex items-center justify-center touch-none shadow-xl">
+            <div id="stick-right-knob" class="w-10 h-10 rounded-full bg-amber-400/60 border border-amber-200 shadow-md"></div>
+            <span class="absolute -top-4 text-[10px] font-extrabold text-amber-300/80 tracking-wider">MIRA 3D</span>
+          </div>
+        </div>
+
+      </div>
+
+    </footer>
+
+  </div>
+
+  <!-- ======================================================================== -->
+  <!-- 3. MODAL DE FIM DE PARTIDA (VITÓRIA / DERROTA) -->
+  <!-- ======================================================================== -->
+  <div id="gameover-modal" class="hidden absolute inset-0 z-40 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+    <div class="glass-card rounded-3xl max-w-md w-full p-6 text-center space-y-4 border border-zinc-700 shadow-2xl">
+      <div id="gameover-icon" class="text-5xl animate-bounce">🏆</div>
+      <h2 id="gameover-title" class="text-2xl font-black text-white">Vitória dos Caçadores!</h2>
+      <p id="gameover-desc" class="text-xs text-zinc-400">Todos os 8 Tesouros 3D foram recolhidos com sucesso!</p>
+
+      <div class="border-t border-zinc-800 pt-3">
+        <h4 class="text-xs font-bold text-zinc-400 mb-2 uppercase tracking-wider">Classificação da Rodada</h4>
+        <div id="gameover-scoreboard" class="space-y-1.5 max-h-40 overflow-y-auto pr-1"></div>
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button onclick="startMatch3D()" class="w-1/2 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs shadow-lg transition">
+          🔄 Jogar Novamente
+        </button>
+        <button onclick="exitToLobby()" class="w-1/2 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs transition">
+          🏠 Voltar ao Lobby
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================== -->
+  <!-- CÓDIGO DO JOGO 3D (THREE.JS + WEBRTC P2P + IA + MOTOR DE FÍSICA) -->
+  <!-- ======================================================================== -->
+  <script>
+    // --- Safe Storage Helpers ---
+    function safeStorageGet(type, key, def) {
+      try {
+        const v = window[type] ? window[type].getItem(key) : null;
+        return v !== null ? v : def;
+      } catch (e) { return def; }
+    }
+    function safeStorageSet(type, key, val) {
+      try {
+        if (window[type]) window[type].setItem(key, val);
+      } catch (e) {}
+    }
+
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    const clientId = 'p_' + Math.random().toString(36).substring(2, 9);
+    let myName = safeStorageGet('localStorage', 'fm_player_name', isTouchDevice ? 'Celular' : 'Papai (Notebook)');
+    let myRole = safeStorageGet('localStorage', 'fm_player_role', isTouchDevice ? 'hunter' : 'ghost');
+    let cameraMode = 'tps'; // 'tps' (3ª pessoa) ou 'fps' (1ª pessoa)
+
+    const palette = ['#fbbf24', '#38bdf8', '#34d399', '#f43f5e', '#a855f7', '#fb923c'];
+
+    // --- Inputs ---
+    const keys = {};
+    const inputState = { dx: 0, dy: 0, yaw: 0, pitch: 0, turbo: false, hunterStun: false, ghostSkill1: false };
+    let stickLeftVec = { x: 0, y: 0 };
+    let stickLeftTouchId = null;
+    let stickRightTouchId = null;
+    let stickRightLastX = 0, stickRightLastY = 0;
+
+    // --- Audio Web API ---
+    let audioCtx = null;
+    let audioEnabled = true;
+
+    function ensureAudio() {
+      if (!audioEnabled) return null;
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      return audioCtx;
+    }
+
+    function playSound(type) {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try {
+          if (type === 'relic') navigator.vibrate(40);
+          else if (type === 'freeze') navigator.vibrate([80, 50, 120]);
+          else if (type === 'stun') navigator.vibrate([60, 30, 60]);
+        } catch (e) {}
+      }
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      if (type === 'relic') {
+        [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+          gain.gain.setValueAtTime(0.15, now + idx * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.22);
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.start(now + idx * 0.05); osc.stop(now + idx * 0.05 + 0.23);
+        });
+      } else if (type === 'stun') {
+        [580, 420, 740].forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+          gain.gain.setValueAtTime(0.18, now + idx * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.16);
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.start(now + idx * 0.05); osc.stop(now + idx * 0.05 + 0.17);
+        });
+      }
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      document.getElementById('btn-sound').textContent = audioEnabled ? '🔊 Som: Ligado' : '🔇 Som: Mudo';
+    }
+
+    // --- Definição das 3 Fases 3D ---
+    const STAGES_3D = [
+      {
+        id: 0,
+        name: '🏰 Fase 1: Mansão Gótica 3D',
+        skyColor: 0x07050d,
+        fogColor: 0x080612,
+        fogNear: 5, fogFar: 45,
+        floorColor: 0x181324,
+        wallColor: 0x2b1d42,
+        lightColor: 0xffeebb,
+        ambientColor: 0x1a1226,
+        size: { w: 80, h: 50 },
+        walls: [
+          // Perímetro
+          { x: 0, z: -25, w: 80, d: 2, h: 5 },
+          { x: 0, z: 25, w: 80, d: 2, h: 5 },
+          { x: -40, z: 0, w: 2, d: 50, h: 5 },
+          { x: 40, z: 0, w: 2, d: 50, h: 5 },
+          // Salas e Corredores Internos
+          { x: -18, z: -10, w: 2, d: 24, h: 5 },
+          { x: -28, z: 2, w: 20, d: 2, h: 5 },
+          { x: 18, z: -10, w: 2, d: 24, h: 5 },
+          { x: 28, z: 2, w: 20, d: 2, h: 5 },
+          { x: 0, z: -8, w: 24, d: 2, h: 5 },
+          { x: -10, z: 12, w: 2, d: 16, h: 5 },
+          { x: 10, z: 12, w: 2, d: 16, h: 5 }
+        ],
+        generators: [
+          { id: 'g1', x: -30, z: -15, name: 'Gerador da Biblioteca' },
+          { id: 'g2', x: 30, z: -15, name: 'Gerador do Laboratório' }
+        ],
+        relics: [
+          { x: -32, z: -6 }, { x: -25, z: 16 }, { x: -6, z: -18 }, { x: 6, z: -18 },
+          { x: 0, z: 5 }, { x: 25, z: 16 }, { x: 32, z: -6 }, { x: 0, z: 20 }
+        ]
+      },
+      {
+        id: 1,
+        name: '🏥 Fase 2: Hospital Sombrio 3D',
+        skyColor: 0x030d0d,
+        fogColor: 0x051314,
+        fogNear: 5, fogFar: 42,
+        floorColor: 0x0e1c1f,
+        wallColor: 0x16343b,
+        lightColor: 0xd6f4f8,
+        ambientColor: 0x081a1d,
+        size: { w: 80, h: 50 },
+        walls: [
+          { x: 0, z: -25, w: 80, d: 2, h: 5 },
+          { x: 0, z: 25, w: 80, d: 2, h: 5 },
+          { x: -40, z: 0, w: 2, d: 50, h: 5 },
+          { x: 40, z: 0, w: 2, d: 50, h: 5 },
+          { x: -14, z: -6, w: 28, d: 2, h: 5 },
+          { x: 14, z: -6, w: 28, d: 2, h: 5 },
+          { x: -20, z: 10, w: 2, d: 20, h: 5 },
+          { x: 20, z: 10, w: 2, d: 20, h: 5 },
+          { x: 0, z: 8, w: 18, d: 2, h: 5 }
+        ],
+        generators: [
+          { id: 'g1', x: -28, z: -16, name: 'Gerador da UTI' },
+          { id: 'g2', x: 28, z: -16, name: 'Gerador da Ala Cirúrgica' }
+        ],
+        relics: [
+          { x: -30, z: 14 }, { x: -12, z: -18 }, { x: 12, z: -18 }, { x: 30, z: 14 },
+          { x: -8, z: 18 }, { x: 8, z: 18 }, { x: 0, z: -2 }, { x: 0, z: -20 }
+        ]
+      },
+      {
+        id: 2,
+        name: '⚰️ Fase 3: Catacumbas & Criptas 3D',
+        skyColor: 0x060b07,
+        fogColor: 0x09140c,
+        fogNear: 4, fogFar: 40,
+        floorColor: 0x141e17,
+        wallColor: 0x1e3324,
+        lightColor: 0xd1fae5,
+        ambientColor: 0x09170e,
+        size: { w: 80, h: 50 },
+        walls: [
+          { x: 0, z: -25, w: 80, d: 2, h: 5 },
+          { x: 0, z: 25, w: 80, d: 2, h: 5 },
+          { x: -40, z: 0, w: 2, d: 50, h: 5 },
+          { x: 40, z: 0, w: 2, d: 50, h: 5 },
+          { x: -16, z: 0, w: 2, d: 32, h: 5 },
+          { x: 16, z: 0, w: 2, d: 32, h: 5 },
+          { x: 0, z: -12, w: 20, d: 2, h: 5 },
+          { x: 0, z: 12, w: 20, d: 2, h: 5 },
+          { x: -28, z: -12, w: 16, d: 2, h: 5 },
+          { x: 28, z: 12, w: 16, d: 2, h: 5 }
+        ],
+        generators: [
+          { id: 'g1', x: -32, z: 16, name: 'Gerador do Mausoléu' },
+          { id: 'g2', x: 32, z: -16, name: 'Gerador da Cripta' }
+        ],
+        relics: [
+          { x: -26, z: 0 }, { x: -32, z: -18 }, { x: 0, z: -18 }, { x: 26, z: 0 },
+          { x: 32, z: 18 }, { x: 0, z: 18 }, { x: -8, z: 0 }, { x: 8, z: 0 }
+        ]
+      }
+    ];
+
+    // ========================================================================
+    // MOTOR DA SALA & ESTADO DO JOGO (HOST ENGINE)
+    // ========================================================================
+    const hostEngine = {
+      status: 'lobby',
+      stageIndex: 0,
+      stageName: STAGES_3D[0].name,
+      winner: null,
+      winReason: '',
+      timeLeft: 180,
+      toast: '',
+      toastTimer: 0,
+      relicsCollected: 0,
+      relicsTarget: 8,
+      generatorsActive: 0,
+      botStunCooldown: 0,
+      players: {
+        [clientId]: {
+          id: clientId, name: myName, role: myRole, color: myRole === 'ghost' ? '#c084fc' : palette[0],
+          x: 0, z: 18, dx: 0, dy: 0, yaw: 0, pitch: 0,
+          battery: 100, turbo: false, frozen: false, rescueProgress: 0,
+          stunCharges: myRole === 'hunter' ? 3 : 0, stunTimer: 0,
+          score: 0, isBot: false
+        },
+        'bot_1': {
+          id: 'bot_1', name: 'Pedrão', role: 'hunter', color: '#fbbf24',
+          x: -4, z: 18, dx: 0, dy: 0, yaw: 0, pitch: 0,
+          battery: 100, turbo: false, frozen: false, rescueProgress: 0,
+          stunCharges: 3, stunTimer: 0, score: 0, isBot: true
+        },
+        'bot_2': {
+          id: 'bot_2', name: 'Queijo', role: 'hunter', color: '#38bdf8',
+          x: 4, z: 18, dx: 0, dy: 0, yaw: 0, pitch: 0,
+          battery: 100, turbo: false, frozen: false, rescueProgress: 0,
+          stunCharges: 3, stunTimer: 0, score: 0, isBot: true
+        },
+        'bot_3': {
+          id: 'bot_3', name: 'Bibidi', role: 'hunter', color: '#34d399',
+          x: 8, z: 18, dx: 0, dy: 0, yaw: 0, pitch: 0,
+          battery: 100, turbo: false, frozen: false, rescueProgress: 0,
+          stunCharges: 3, stunTimer: 0, score: 0, isBot: true
+        }
+      },
+      relics: [],
+      generators: []
+    };
+
+    let gameState = null;
+    let netMode = 'local_host'; // 'local_host', 'p2p_host', 'p2p_client'
+    let peer = null;
+    let hostConn = null;
+    const clientConns = {};
+    const pendingCommands = [];
+
+    // ========================================================================
+    // RENDERIZADOR 3D COM THREE.JS
+    // ========================================================================
+    let scene, camera, renderer;
+    let floorMesh, wallsGroup, relicsGroup, gensGroup, playersGroup;
+    let playerMeshes = {};
+    let relicMeshes = {};
+    let genMeshes = {};
+    let spotLights = {};
+
+    function initThreeScene() {
+      const canvas = document.getElementById('three-canvas');
+      scene = new THREE.Scene();
+
+      camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 120);
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      wallsGroup = new THREE.Group(); scene.add(wallsGroup);
+      relicsGroup = new THREE.Group(); scene.add(relicsGroup);
+      gensGroup = new THREE.Group(); scene.add(gensGroup);
+      playersGroup = new THREE.Group(); scene.add(playersGroup);
+
+      build3DStage(0);
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    function onWindowResize() {
+      if (!camera || !renderer) return;
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function build3DStage(stIdx) {
+      const stage = STAGES_3D[stIdx] || STAGES_3D[0];
+      scene.background = new THREE.Color(stage.skyColor);
+      scene.fog = new THREE.Fog(stage.fogColor, stage.fogNear, stage.fogFar);
+
+      // Limpa cena
+      while (wallsGroup.children.length > 0) wallsGroup.remove(wallsGroup.children[0]);
+      if (floorMesh) scene.remove(floorMesh);
+
+      // Chão Temático
+      const floorGeo = new THREE.PlaneGeometry(stage.size.w, stage.size.h, 32, 20);
+      const floorMat = new THREE.MeshStandardMaterial({
+        color: stage.floorColor,
+        roughness: 0.85,
+        metalness: 0.15
+      });
+      floorMesh = new THREE.Mesh(floorGeo, floorMat);
+      floorMesh.rotation.x = -Math.PI / 2;
+      floorMesh.receiveShadow = true;
+      scene.add(floorMesh);
+
+      // Luz Ambiente Suave e Luz Noturna Estilizada
+      if (!scene.getObjectByName('ambient_light')) {
+        const amb = new THREE.AmbientLight(0x334155, 1.0);
+        amb.name = 'ambient_light';
+        scene.add(amb);
+      }
+
+      if (!scene.getObjectByName('hemi_light')) {
+        const hemi = new THREE.HemisphereLight(0x93c5fd, 0x1e1b4b, 0.75);
+        hemi.name = 'hemi_light';
+        scene.add(hemi);
+      }
+
+      // Tochas nas Paredes (Luz Aconchegante de Terror Gótico)
+      const torchPositions = [
+        { x: -16, y: 2.2, z: -10 },
+        { x: -16, y: 2.2, z: 10 },
+        { x: 16, y: 2.2, z: -10 },
+        { x: 16, y: 2.2, z: 10 },
+        { x: 0, y: 2.2, z: 0 }
+      ];
+      torchPositions.forEach(pos => {
+        const torchLight = new THREE.PointLight(0xf59e0b, 1.4, 15, 1.5);
+        torchLight.position.set(pos.x, pos.y, pos.z);
+        wallsGroup.add(torchLight);
+
+        const sconceGeo = new THREE.CylinderGeometry(0.08, 0.05, 0.4, 6);
+        const sconceMat = new THREE.MeshStandardMaterial({ color: 0x27272a, metalness: 0.8 });
+        const sconceMesh = new THREE.Mesh(sconceGeo, sconceMat);
+        sconceMesh.position.set(pos.x, pos.y - 0.2, pos.z);
+        wallsGroup.add(sconceMesh);
+
+        const flameGeo = new THREE.SphereGeometry(0.12, 6, 6);
+        const flameMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+        const flameMesh = new THREE.Mesh(flameGeo, flameMat);
+        flameMesh.position.set(pos.x, pos.y, pos.z);
+        wallsGroup.add(flameMesh);
+      });
+
+      // Paredes Góticas 3D
+      const wallMat = new THREE.MeshStandardMaterial({
+        color: stage.wallColor,
+        roughness: 0.9,
+        metalness: 0.1
+      });
+      const wallCapMat = new THREE.MeshStandardMaterial({
+        color: 0x47385f,
+        roughness: 0.7
+      });
+
+      stage.walls.forEach(w => {
+        const wGeo = new THREE.BoxGeometry(w.w, w.h, w.d);
+        const wMesh = new THREE.Mesh(wGeo, wallMat);
+        wMesh.position.set(w.x, w.h / 2, w.z);
+        wMesh.castShadow = true;
+        wMesh.receiveShadow = true;
+        wallsGroup.add(wMesh);
+
+        // Borda superior decorativa
+        const capGeo = new THREE.BoxGeometry(w.w + 0.3, 0.4, w.d + 0.3);
+        const capMesh = new THREE.Mesh(capGeo, wallCapMat);
+        capMesh.position.set(w.x, w.h + 0.2, w.z);
+        wallsGroup.add(capMesh);
+      });
+    }
+
+    function create3DPlayerMesh(p) {
+      const group = new THREE.Group();
+
+      if (p.role === 'ghost') {
+        // Fantasma 3D: Ectoplasma flutuante translúcido
+        const ghostMat = new THREE.MeshStandardMaterial({
+          color: 0xd8b4fe,
+          emissive: 0x9333ea,
+          emissiveIntensity: 0.55,
+          transparent: true,
+          opacity: 0.88,
+          roughness: 0.2
+        });
+        const bodyGeo = new THREE.SphereGeometry(0.8, 16, 16);
+        bodyGeo.scale(1, 1.3, 1);
+        const body = new THREE.Mesh(bodyGeo, ghostMat);
+        body.position.y = 1.3;
+        group.add(body);
+
+        // Olhos negros assustadores
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x110726 });
+        const eyeGeo = new THREE.SphereGeometry(0.12, 8, 8);
+        const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+        eyeL.position.set(-0.25, 1.5, 0.7);
+        const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+        eyeR.position.set(0.25, 1.5, 0.7);
+        group.add(eyeL); group.add(eyeR);
+
+        // Luz própria do fantasma
+        const ghostLight = new THREE.PointLight(0xa855f7, 1.8, 8);
+        ghostLight.position.set(0, 1.5, 0);
+        group.add(ghostLight);
+      } else {
+        // Caçador 3D: Modelo estilizado com Lanterna
+        const bodyMat = new THREE.MeshStandardMaterial({ color: p.color || 0xfbbf24, roughness: 0.7 });
+        const bodyGeo = new THREE.CylinderGeometry(0.45, 0.55, 1.4, 12);
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 0.9;
+        body.castShadow = true;
+        group.add(body);
+
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xffedd5, roughness: 0.8 });
+        const headGeo = new THREE.SphereGeometry(0.35, 12, 12);
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.y = 1.8;
+        head.castShadow = true;
+        group.add(head);
+
+        // Modelo da Lanterna na mão
+        const lightPropMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8 });
+        const torchGeo = new THREE.CylinderGeometry(0.1, 0.14, 0.6, 8);
+        torchGeo.rotateX(Math.PI / 2);
+        const torch = new THREE.Mesh(torchGeo, lightPropMat);
+        torch.position.set(0.4, 1.1, 0.4);
+        group.add(torch);
+
+        // Facho de Luz 3D Real (SpotLight com Sombras)
+        const spot = new THREE.SpotLight(0xfff7c2, 3.8, 28, Math.PI / 5.5, 0.45, 1.4);
+        spot.position.set(0.4, 1.2, 0.5);
+        spot.castShadow = true;
+        spot.shadow.mapSize.width = 1024;
+        spot.shadow.mapSize.height = 1024;
+        spot.shadow.camera.near = 0.5;
+        spot.shadow.camera.far = 30;
+
+        const target = new THREE.Object3D();
+        target.position.set(0.4, 1.2, 10);
+        group.add(target);
+        spot.target = target;
+        group.add(spot);
+        spotLights[p.id] = spot;
+
+        // Feixe Volumétrico 3D Visível da Lanterna
+        const beamGeo = new THREE.ConeGeometry(2.4, 16, 16, 1, true);
+        beamGeo.translate(0, 8, 0);
+        beamGeo.rotateX(Math.PI / 2);
+        const beamMat = new THREE.MeshBasicMaterial({
+          color: 0xfff7c2,
+          transparent: true,
+          opacity: 0.12,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide
+        });
+        const beamMesh = new THREE.Mesh(beamGeo, beamMat);
+        beamMesh.position.set(0.4, 1.2, 0.5);
+        group.add(beamMesh);
+
+        // Luz suave pessoal ao redor do caçador
+        const personalLight = new THREE.PointLight(0xfffaed, 0.8, 5, 2);
+        personalLight.position.set(0, 1.4, 0);
+        group.add(personalLight);
+      }
+
+      playersGroup.add(group);
+      playerMeshes[p.id] = group;
+      return group;
+    }
+
+    function create3DRelicMesh(rel) {
+      const group = new THREE.Group();
+      const crystalGeo = new THREE.OctahedronGeometry(0.45, 0);
+      const crystalMat = new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.8,
+        metalness: 0.3,
+        roughness: 0.1
+      });
+      const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+      crystal.position.y = 0.7;
+      group.add(crystal);
+
+      const pLight = new THREE.PointLight(0x38bdf8, 1.2, 4.5);
+      pLight.position.y = 0.7;
+      group.add(pLight);
+
+      group.position.set(rel.x, 0, rel.z);
+      relicsGroup.add(group);
+      relicMeshes[rel.id] = group;
+      return group;
+    }
+
+    function create3DGenMesh(gen) {
+      const group = new THREE.Group();
+      const boxGeo = new THREE.BoxGeometry(1.6, 2.2, 1.2);
+      const boxMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.4 });
+      const box = new THREE.Mesh(boxGeo, boxMat);
+      box.position.y = 1.1;
+      box.castShadow = true;
+      group.add(box);
+
+      const ringGeo = new THREE.TorusGeometry(0.4, 0.08, 8, 16);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.position.set(0, 1.3, 0.65);
+      group.add(ring);
+
+      group.position.set(gen.x, 0, gen.z);
+      gensGroup.add(group);
+      genMeshes[gen.id] = group;
+      return group;
+    }
+
+    // ========================================================================
+    // INTERAÇÃO E CONTROLES (PC MOUSE/TECLADO + CELULAR DUAL TOUCH)
+    // ========================================================================
+    function setupControls() {
+      // Teclado PC
+      window.addEventListener('keydown', (e) => {
+        const k = e.key.toLowerCase();
+        keys[k] = true;
+        if (k === ' ' || k === 'shift') inputState.turbo = true;
+        if (k === 'q' || k === '2') inputState.hunterStun = true;
+        if (k === 'c') toggleCameraMode();
+      });
+      window.addEventListener('keyup', (e) => {
+        const k = e.key.toLowerCase();
+        keys[k] = false;
+        if (k === ' ' || k === 'shift') inputState.turbo = false;
+      });
+
+      // Mouse Look no Canvas (Pointer Lock)
+      const canvas = document.getElementById('three-canvas');
+      canvas.addEventListener('click', () => {
+        if (!isTouchDevice && gameState && gameState.status === 'playing') {
+          canvas.requestPointerLock?.();
+        }
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (document.pointerLockElement === canvas) {
+          inputState.yaw -= e.movementX * 0.0028;
+          inputState.pitch = Math.max(-0.6, Math.min(0.6, inputState.pitch - e.movementY * 0.0024));
+        }
+      });
+
+      // Dual Joysticks Touch (NATIVOS DESACOPLADOS)
+      setupTouchJoysticks3D();
+    }
+
+    function setupTouchJoysticks3D() {
+      const leftZone = document.getElementById('stick-left-zone');
+      const leftKnob = document.getElementById('stick-left-knob');
+      const rightZone = document.getElementById('stick-right-zone');
+      const rightKnob = document.getElementById('stick-right-knob');
+      if (!leftZone || !leftKnob || !rightZone || !rightKnob) return;
+
+      function updateStick(zone, knob, clientX, clientY, isRight) {
+        const rect = zone.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const maxDist = rect.width * 0.38;
+        let dx = clientX - cx, dy = clientY - cy;
+        const dist = Math.hypot(dx, dy);
+        if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
+        knob.style.transform = `translate(${dx}px, ${dy}px)`;
+
+        if (isRight) {
+          // O analógico direito controla a rotação da câmera / mira em 3D
+          const deltaX = (clientX - stickRightLastX);
+          const deltaY = (clientY - stickRightLastY);
+          stickRightLastX = clientX;
+          stickRightLastY = clientY;
+          inputState.yaw -= deltaX * 0.006;
+          inputState.pitch = Math.max(-0.6, Math.min(0.6, inputState.pitch - deltaY * 0.005));
+        } else {
+          stickLeftVec.x = dx / maxDist;
+          stickLeftVec.y = dy / maxDist;
+        }
+      }
+
+      leftZone.addEventListener('touchstart', (e) => {
+        e.preventDefault(); ensureAudio();
+        if (stickLeftTouchId === null && e.changedTouches.length > 0) {
+          const t = e.changedTouches[0];
+          stickLeftTouchId = t.identifier;
+          updateStick(leftZone, leftKnob, t.clientX, t.clientY, false);
+        }
+      }, { passive: false });
+
+      rightZone.addEventListener('touchstart', (e) => {
+        e.preventDefault(); ensureAudio();
+        if (stickRightTouchId === null && e.changedTouches.length > 0) {
+          const t = e.changedTouches[0];
+          stickRightTouchId = t.identifier;
+          stickRightLastX = t.clientX;
+          stickRightLastY = t.clientY;
+          updateStick(rightZone, rightKnob, t.clientX, t.clientY, true);
+        }
+      }, { passive: false });
+
+      window.addEventListener('touchmove', (e) => {
+        for (let i = 0; i < e.touches.length; i++) {
+          const t = e.touches[i];
+          if (t.identifier === stickLeftTouchId) {
+            e.preventDefault();
+            updateStick(leftZone, leftKnob, t.clientX, t.clientY, false);
+          } else if (t.identifier === stickRightTouchId) {
+            e.preventDefault();
+            updateStick(rightZone, rightKnob, t.clientX, t.clientY, true);
+          }
+        }
+      }, { passive: false });
+
+      function onTouchEndGlobal(e) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const id = e.changedTouches[i].identifier;
+          if (id === stickLeftTouchId) {
+            stickLeftTouchId = null; stickLeftVec.x = 0; stickLeftVec.y = 0;
+            leftKnob.style.transform = 'translate(0px, 0px)';
+          }
+          if (id === stickRightTouchId) {
+            stickRightTouchId = null;
+            rightKnob.style.transform = 'translate(0px, 0px)';
+          }
+        }
+      }
+      window.addEventListener('touchend', onTouchEndGlobal, { passive: false });
+      window.addEventListener('touchcancel', onTouchEndGlobal, { passive: false });
+    }
+
+    function toggleCameraMode() {
+      cameraMode = (cameraMode === 'tps') ? 'fps' : 'tps';
+      document.getElementById('btn-cam-tps').className = cameraMode === 'tps' ? 'px-2.5 py-1 rounded-lg bg-zinc-800 text-amber-300 font-bold border border-amber-400/40' : 'px-2.5 py-1 rounded-lg bg-zinc-900 text-zinc-400 font-medium';
+      document.getElementById('btn-cam-fps').className = cameraMode === 'fps' ? 'px-2.5 py-1 rounded-lg bg-zinc-800 text-amber-300 font-bold border border-amber-400/40' : 'px-2.5 py-1 rounded-lg bg-zinc-900 text-zinc-400 font-medium';
+    }
+    function setCameraMode(mode) {
+      cameraMode = mode;
+      toggleCameraMode();
+      toggleCameraMode();
+    }
+
+    function setTurboActive(active) {
+      inputState.turbo = active;
+    }
+    function triggerHunterStun() {
+      inputState.hunterStun = true;
+    }
+
+    // ========================================================================
+    // SIMULAÇÃO FÍSICA E COLISÃO 3D (AABB CONTRA PAREDES)
+    // ========================================================================
+    function checkWallCollision3D(x, z, r = 0.8, walls) {
+      for (let i = 0; i < walls.length; i++) {
+        const w = walls[i];
+        const halfW = w.w / 2, halfD = w.d / 2;
+        const minX = w.x - halfW, maxX = w.x + halfW;
+        const minZ = w.z - halfD, maxZ = w.z + halfD;
+        const closeX = Math.max(minX, Math.min(x, maxX));
+        const closeZ = Math.max(minZ, Math.min(z, maxZ));
+        if (Math.hypot(x - closeX, z - closeZ) < r) return true;
+      }
+      return false;
+    }
+
+    function stepHostSimulation3D(dt) {
+      if (hostEngine.status !== 'playing') return;
+      hostEngine.timeLeft -= dt;
+      if (hostEngine.botStunCooldown > 0) hostEngine.botStunCooldown -= dt;
+      if (hostEngine.toastTimer > 0) {
+        hostEngine.toastTimer -= dt;
+        if (hostEngine.toastTimer <= 0) hostEngine.toast = '';
+      }
+
+      const stage = STAGES_3D[hostEngine.stageIndex || 0];
+      const pList = Object.values(hostEngine.players);
+      const ghost = pList.find(p => p.role === 'ghost');
+
+      if (ghost && ghost.stunTimer > 0) {
+        ghost.stunTimer -= dt;
+      }
+
+      // 1. Movimentação dos Caçadores e Bots
+      pList.forEach(p => {
+        if (p.frozen) return;
+        if (p.role === 'ghost' && (p.stunTimer || 0) > 0) return;
+
+        let spd = p.role === 'ghost' ? 9.5 : (p.turbo && p.battery > 5 ? 13.5 : 10.5);
+        if (p.turbo && p.role === 'hunter') {
+          p.battery = Math.max(0, p.battery - 18 * dt);
+        } else if (p.role === 'hunter') {
+          p.battery = Math.min(100, p.battery + 8 * dt);
+        }
+
+        // Se for bot, calcula IA em 3D
+        if (p.isBot) {
+          stepBotAI3D(p, ghost, stage, dt);
+        }
+
+        // Movimento com rotação da câmera (vetor relativo à visão)
+        const moveLen = Math.hypot(p.dx, p.dy);
+        if (moveLen > 0.05) {
+          const moveAng = Math.atan2(p.dx, -p.dy) + p.yaw;
+          const vx = Math.sin(moveAng) * spd * dt;
+          const vz = -Math.cos(moveAng) * spd * dt;
+
+          const nx = p.x + vx;
+          const nz = p.z + vz;
+          const ignoreWalls = p.role === 'ghost'; // fantasma atravessa paredes interiores
+
+          if (!checkWallCollision3D(nx, nz, 0.8, stage.walls) || ignoreWalls) {
+            p.x = nx; p.z = nz;
+          } else {
+            if (!checkWallCollision3D(nx, p.z, 0.8, stage.walls)) p.x = nx;
+            if (!checkWallCollision3D(p.x, nz, 0.8, stage.walls)) p.z = nz;
+          }
+        }
+      });
+
+      // 2. Trava dos Caçadores contra o Fantasma
+      pList.filter(p => p.role === 'hunter').forEach(h => {
+        if (h.hunterStun) {
+          h.hunterStun = false;
+          if (ghost && (h.stunCharges || 0) > 0 && (ghost.stunTimer || 0) <= 0) {
+            const dist = Math.hypot(ghost.x - h.x, ghost.z - h.z);
+            if (dist < 12) {
+              h.stunCharges--;
+              ghost.stunTimer = 3.0;
+              hostEngine.botStunCooldown = 8.0;
+              hostEngine.toast = `⛓️ ${h.name} travou o Fantasma por 3 segundos! (${h.stunCharges}x restantes)`;
+              hostEngine.toastTimer = 3.0;
+              playSound('stun');
+            }
+          }
+        }
+      });
+
+      // 3. Captura do Fantasma contra Caçadores
+      if (ghost && (ghost.stunTimer || 0) <= 0) {
+        pList.filter(p => p.role === 'hunter' && !p.frozen).forEach(h => {
+          const dist = Math.hypot(ghost.x - h.x, ghost.z - h.z);
+          if (dist < 2.0) {
+            h.frozen = true;
+            hostEngine.toast = `🧊 O Fantasma congelou ${h.name}! Aproxime-se para salvar!`;
+            hostEngine.toastTimer = 3.5;
+            playSound('freeze');
+          }
+        });
+      }
+
+      // 4. Coleta de Tesouros 3D
+      hostEngine.relics.forEach(rel => {
+        if (rel.collected) return;
+        pList.filter(p => p.role === 'hunter' && !p.frozen).forEach(h => {
+          if (Math.hypot(rel.x - h.x, rel.z - h.z) < 1.8) {
+            rel.collected = true;
+            hostEngine.relicsCollected++;
+            h.score = (h.score || 0) + 100;
+            hostEngine.toast = `💎 ${h.name} recolheu um Tesouro! (${hostEngine.relicsCollected}/${hostEngine.relicsTarget})`;
+            hostEngine.toastTimer = 2.5;
+            playSound('relic');
+          }
+        });
+      });
+
+      // 5. Ativação dos Geradores 3D
+      hostEngine.generators.forEach(gen => {
+        if (gen.completed) return;
+        const nearHunters = pList.filter(p => p.role === 'hunter' && !p.frozen && Math.hypot(gen.x - p.x, gen.z - p.z) < 3.2);
+        if (nearHunters.length > 0) {
+          gen.progress = Math.min(100, (gen.progress || 0) + 20 * nearHunters.length * dt);
+          if (gen.progress >= 100) {
+            gen.completed = true;
+            hostEngine.generatorsActive++;
+            hostEngine.toast = `⚡ ${gen.name} FOI LIGADO! Mansão iluminada!`;
+            hostEngine.toastTimer = 3.0;
+            playSound('relic');
+          }
+        }
+      });
+
+      // 6. Resgate de Aliados Congelados
+      pList.filter(p => p.role === 'hunter' && p.frozen).forEach(f => {
+        const savior = pList.find(s => s.role === 'hunter' && !s.frozen && Math.hypot(s.x - f.x, s.z - f.z) < 2.5);
+        if (savior) {
+          f.rescueProgress = (f.rescueProgress || 0) + 38 * dt;
+          if (f.rescueProgress >= 100) {
+            f.frozen = false;
+            f.rescueProgress = 0;
+            savior.score = (savior.score || 0) + 150;
+            hostEngine.toast = `🤝 ${savior.name} salvou ${f.name}!`;
+            hostEngine.toastTimer = 2.5;
+            playSound('relic');
+          }
+        } else {
+          f.rescueProgress = Math.max(0, (f.rescueProgress || 0) - 20 * dt);
+        }
+      });
+
+      // 7. Condições de Vitória
+      const allFrozen = pList.filter(p => p.role === 'hunter').every(p => p.frozen);
+      if (hostEngine.relicsCollected >= hostEngine.relicsTarget && hostEngine.generatorsActive >= 2) {
+        hostEngine.status = 'gameover';
+        hostEngine.winner = 'hunters';
+        hostEngine.winReason = 'Todos os 8 Tesouros 3D e Geradores foram concluídos!';
+      } else if (allFrozen) {
+        hostEngine.status = 'gameover';
+        hostEngine.winner = 'ghost';
+        hostEngine.winReason = 'O Fantasma congelou todos os Caçadores!';
+      } else if (hostEngine.timeLeft <= 0) {
+        hostEngine.status = 'gameover';
+        hostEngine.winner = 'ghost';
+        hostEngine.winReason = 'O tempo na mansão esgotou!';
+      }
+    }
+
+    function stepBotAI3D(bot, ghost, stage, dt) {
+      if (bot.role === 'ghost') {
+        // Fantasma IA persegue caçador mais próximo
+        const hunters = Object.values(hostEngine.players).filter(p => p.role === 'hunter' && !p.frozen);
+        if (hunters.length > 0) {
+          let closest = hunters[0], minDist = 999;
+          hunters.forEach(h => {
+            const d = Math.hypot(h.x - bot.x, h.z - bot.z);
+            if (d < minDist) { minDist = d; closest = h; }
+          });
+          const ang = Math.atan2(closest.x - bot.x, closest.z - bot.z);
+          bot.dx = 0; bot.dy = -1; bot.yaw = ang;
+        }
+      } else {
+        // Caçador IA: salva aliados congelados, recolhe tesouros ou liga geradores
+        const frozenAlly = Object.values(hostEngine.players).find(p => p.role === 'hunter' && p.frozen);
+        const uncollectedRelic = hostEngine.relics.find(r => !r.collected);
+        const uncompletedGen = hostEngine.generators.find(g => !g.completed);
+
+        let target = frozenAlly || uncollectedRelic || uncompletedGen;
+        if (target) {
+          const ang = Math.atan2(target.x - bot.x, target.z - bot.z);
+          bot.dx = 0; bot.dy = -1; bot.yaw = ang;
+        }
+
+        // Se fantasma perto, ativa trava
+        if (ghost && Math.hypot(ghost.x - bot.x, ghost.z - bot.z) < 10 && (bot.stunCharges || 0) > 0 && hostEngine.botStunCooldown <= 0) {
+          bot.hunterStun = true;
+        }
+      }
+    }
+
+    // ========================================================================
+    // LOOP DE RENDERIZAÇÃO 3D 60 FPS ULTRA FLUIDO
+    // ========================================================================
+    let lastTime = performance.now();
+
+    function renderLoop3D() {
+      requestAnimationFrame(renderLoop3D);
+      const now = performance.now();
+      const dt = Math.min(0.06, (now - lastTime) / 1000);
+      lastTime = now;
+
+      if (!gameState || gameState.status === 'lobby') {
+        // No lobby, gira a câmera suavemente ao redor do cenário
+        if (camera) {
+          const orbitT = now * 0.0003;
+          camera.position.set(Math.cos(orbitT) * 35, 22, Math.sin(orbitT) * 35);
+          camera.lookAt(0, 2, 0);
+          renderer.render(scene, camera);
+        }
+        return;
+      }
+
+      // Atualiza Posições dos Jogadores 3D
+      const me = gameState.players.find(p => p.id === clientId) || gameState.players[0];
+
+      gameState.players.forEach(p => {
+        let mesh = playerMeshes[p.id];
+        if (!mesh) mesh = create3DPlayerMesh(p);
+
+        // Suavização das posições
+        if (p.id === clientId) {
+          mesh.position.x = p.x;
+          mesh.position.z = p.z;
+          mesh.rotation.y = inputState.yaw;
+        } else {
+          mesh.position.x += (p.x - mesh.position.x) * 0.35;
+          mesh.position.z += (p.z - mesh.position.z) * 0.35;
+          mesh.rotation.y = p.yaw || 0;
+        }
+
+        // Fantasma flutua senoidalmente
+        if (p.role === 'ghost') {
+          mesh.position.y = 0.8 + Math.sin(now * 0.005) * 0.25;
+        } else {
+          mesh.position.y = 0;
+        }
+      });
+
+      // Atualiza Tesouros 3D (Giram e flutuam no ar)
+      (gameState.relics || []).forEach(rel => {
+        let rMesh = relicMeshes[rel.id];
+        if (!rMesh) rMesh = create3DRelicMesh(rel);
+        if (rel.collected) {
+          rMesh.visible = false;
+        } else {
+          rMesh.visible = true;
+          rMesh.children[0].rotation.y += 0.035;
+          rMesh.children[0].position.y = 0.8 + Math.sin(now * 0.006 + rel.x) * 0.18;
+        }
+      });
+
+      // Atualiza Geradores 3D
+      (gameState.generators || []).forEach(gen => {
+        let gMesh = genMeshes[gen.id];
+        if (!gMesh) gMesh = create3DGenMesh(gen);
+        if (gen.completed) {
+          gMesh.children[1].material.color.setHex(0x10b981);
+        }
+      });
+
+      // Posicionamento da Câmera 3D (Primeira ou Terceira Pessoa)
+      if (me) {
+        const myMesh = playerMeshes[me.id];
+        if (myMesh) {
+          if (cameraMode === 'fps') {
+            camera.position.set(myMesh.position.x, 1.8, myMesh.position.z);
+            camera.rotation.set(inputState.pitch, inputState.yaw, 0, 'YXZ');
+            myMesh.visible = false; // esconde corpo na primeira pessoa
+          } else {
+            myMesh.visible = true;
+            // Terceira Pessoa Sobre o Ombro
+            const camDist = 4.8;
+            const camHeight = 2.4;
+            const cx = myMesh.position.x - Math.sin(inputState.yaw) * camDist;
+            const cz = myMesh.position.z - Math.cos(inputState.yaw) * camDist;
+            camera.position.set(cx, myMesh.position.y + camHeight, cz);
+            camera.lookAt(myMesh.position.x, myMesh.position.y + 1.4, myMesh.position.z);
+          }
+        }
+      }
+
+      renderer.render(scene, camera);
+      updateRadar3D(me);
+    }
+
+    // Mini-Radar de Proximidade 3D
+    function updateRadar3D(me) {
+      if (!me) return;
+      const container = document.getElementById('radar-blips-container');
+      if (!container) return;
+      container.innerHTML = '';
+      const radarScale = 2.2;
+
+      // Pontos no radar para tesouros
+      (gameState.relics || []).filter(r => !r.collected).forEach(r => {
+        const dx = (r.x - me.x) * radarScale;
+        const dz = (r.z - me.z) * radarScale;
+        if (Math.hypot(dx, dz) < 48) {
+          const blip = document.createElement('div');
+          blip.className = 'radar-blip w-1.5 h-1.5 bg-sky-400';
+          blip.style.left = `${56 + dx}px`;
+          blip.style.top = `${56 + dz}px`;
+          container.appendChild(blip);
+        }
+      });
+
+      // Ponto no radar para outros jogadores
+      (gameState.players || []).forEach(p => {
+        if (p.id === me.id) return;
+        if (p.role === 'ghost' && me.role !== 'ghost') return; // fantasma oculto no radar
+        const dx = (p.x - me.x) * radarScale;
+        const dz = (p.z - me.z) * radarScale;
+        if (Math.hypot(dx, dz) < 48) {
+          const blip = document.createElement('div');
+          blip.className = `radar-blip w-2 h-2 ${p.role === 'ghost' ? 'bg-purple-400' : 'bg-amber-400'}`;
+          blip.style.left = `${56 + dx}px`;
+          blip.style.top = `${56 + dz}px`;
+          container.appendChild(blip);
+        }
+      });
+    }
+
+    // ========================================================================
+    // CICLO DA PARTIDA, LOBBY E WEBRTC MULTIPLAYER
+    // ========================================================================
+    function startMatch3D() {
+      ensureAudio();
+      tryAutoFullscreen();
+
+      if (netMode === 'p2p_client') {
+        pendingCommands.push({ action: 'start_game' });
+        return;
+      }
+
+      // Sorteia ou seleciona fase
+      const sel = document.getElementById('stage-selector').value;
+      const stIdx = sel === 'random' ? Math.floor(Math.random() * 3) : parseInt(sel);
+      hostEngine.stageIndex = stIdx;
+      hostEngine.stageName = STAGES_3D[stIdx].name;
+      build3DStage(stIdx);
+
+      // Inicia Tesouros e Geradores da fase
+      const stage = STAGES_3D[stIdx];
+      hostEngine.relics = stage.relics.map((r, i) => ({ id: 'rel_' + i, x: r.x, z: r.z, collected: false }));
+      hostEngine.generators = stage.generators.map(g => ({ id: g.id, x: g.x, z: g.z, name: g.name, progress: 0, completed: false }));
+      hostEngine.relicsCollected = 0;
+      hostEngine.generatorsActive = 0;
+      hostEngine.timeLeft = 180;
+      hostEngine.status = 'playing';
+
+      // Posiciona jogadores
+      let hunterOffset = -4;
+      Object.values(hostEngine.players).forEach(p => {
+        p.frozen = false;
+        p.rescueProgress = 0;
+        p.battery = 100;
+        p.stunCharges = p.role === 'hunter' ? 3 : 0;
+        if (p.role === 'ghost') {
+          p.x = 0; p.z = -18; p.yaw = Math.PI;
+        } else {
+          p.x = hunterOffset; p.z = 18; p.yaw = 0;
+          hunterOffset += 3.5;
+        }
+      });
+
+      broadcastHostState3D();
+    }
+
+    function exitToLobby() {
+      if (netMode === 'p2p_client') {
+        pendingCommands.push({ action: 'back_to_lobby' });
+      } else {
+        hostEngine.status = 'lobby';
+        broadcastHostState3D();
+      }
+    }
+
+    function broadcastHostState3D() {
+      const snapshot = {
+        status: hostEngine.status,
+        stageIndex: hostEngine.stageIndex,
+        stageName: hostEngine.stageName,
+        winner: hostEngine.winner,
+        winReason: hostEngine.winReason,
+        timeLeft: hostEngine.timeLeft,
+        toast: hostEngine.toast,
+        relicsCollected: hostEngine.relicsCollected,
+        relicsTarget: hostEngine.relicsTarget,
+        generatorsActive: hostEngine.generatorsActive,
+        players: Object.values(hostEngine.players),
+        relics: hostEngine.relics,
+        generators: hostEngine.generators
+      };
+      onServerStateUpdate3D(snapshot);
+
+      if (netMode === 'p2p_host') {
+        for (const conn of Object.values(clientConns)) {
+          if (conn && conn.open) conn.send(snapshot);
+        }
+      }
+    }
+
+    function onServerStateUpdate3D(state) {
+      gameState = state;
+
+      const lobbyEl = document.getElementById('lobby-screen');
+      const gameHud = document.getElementById('game-hud');
+      const modalEl = document.getElementById('gameover-modal');
+
+      if (state.status === 'lobby') {
+        lobbyEl.classList.remove('hidden');
+        gameHud.classList.add('hidden');
+        modalEl.classList.add('hidden');
+        renderLobbyPlayers3D(state.players);
+      } else {
+        lobbyEl.classList.add('hidden');
+        gameHud.classList.remove('hidden');
+        updateHUD3D(state);
+
+        if (state.status === 'gameover') {
+          modalEl.classList.remove('hidden');
+          const title = document.getElementById('gameover-title');
+          const desc = document.getElementById('gameover-desc');
+          const icon = document.getElementById('gameover-icon');
+          if (state.winner === 'hunters') {
+            icon.textContent = '🏆🔦💎';
+            title.textContent = 'Vitória dos Caçadores!';
+            desc.textContent = state.winReason || 'Todos os tesouros e geradores foram concluídos em 3D!';
+          } else {
+            icon.textContent = '👻🌙';
+            title.textContent = 'Vitória do Fantasma!';
+            desc.textContent = state.winReason || 'O Fantasma assombrou a mansão!';
+          }
+
+          const sorted = [...state.players].sort((a, b) => (b.score || 0) - (a.score || 0));
+          document.getElementById('gameover-scoreboard').innerHTML = sorted.map((p, idx) => `
+            <div class="flex items-center justify-between px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-zinc-400">#${idx + 1}</span>
+                <span>${p.role === 'ghost' ? '👻' : '🔦'}</span>
+                <span class="font-bold text-white">${escapeHtml(p.name)}</span>
+              </div>
+              <span class="font-bold text-amber-400">${p.score || 0} pts</span>
+            </div>
+          `).join('');
+        }
+      }
+    }
+
+    function updateHUD3D(state) {
+      const me = state.players.find(p => p.id === clientId) || state.players[0];
+      if (!me) return;
+
+      document.getElementById('hud-stage-name').textContent = state.stageName;
+      document.getElementById('hud-relics-text').textContent = `${state.relicsCollected}/${state.relicsTarget}`;
+      document.getElementById('hud-gens-text').textContent = `${state.generatorsActive}/2`;
+
+      const secs = Math.max(0, Math.ceil(state.timeLeft));
+      document.getElementById('hud-timer').textContent = `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
+
+      // Toast
+      const toastEl = document.getElementById('hud-toast');
+      if (state.toast) {
+        toastEl.textContent = state.toast;
+        toastEl.classList.remove('hidden');
+      } else {
+        toastEl.classList.add('hidden');
+      }
+
+      // Papel & Bateria
+      const roleBadge = document.getElementById('hud-role-badge');
+      const energyBar = document.getElementById('hud-energy-bar');
+      const energyVal = document.getElementById('hud-energy-val');
+      const btnStun = document.getElementById('btn-touch-stun');
+      const touchActions = document.getElementById('touch-actions-container');
+
+      if (me.role === 'ghost') {
+        roleBadge.textContent = (me.stunTimer || 0) > 0 ? '🧊 Congelado' : '👻 Fantasma';
+        roleBadge.className = 'text-xs font-bold text-purple-400';
+        energyBar.style.width = '100%';
+        energyBar.className = 'bg-purple-500 h-full';
+        energyVal.textContent = (me.stunTimer || 0) > 0 ? 'TRAVADO' : 'ECTOPLASMA';
+        if (btnStun) btnStun.classList.add('hidden');
+      } else {
+        roleBadge.textContent = me.frozen ? '🧊 Congelado!' : '🔦 Caçador';
+        roleBadge.className = me.frozen ? 'text-xs font-bold text-sky-400 animate-pulse' : 'text-xs font-bold text-amber-400';
+        const bat = Math.round(me.battery || 0);
+        energyBar.style.width = `${bat}%`;
+        energyBar.className = bat < 25 ? 'bg-red-500 h-full' : 'bg-gradient-to-r from-emerald-500 to-green-400 h-full';
+        energyVal.textContent = `${bat}%`;
+        if (btnStun) {
+          btnStun.classList.remove('hidden');
+          const charges = me.stunCharges ?? 0;
+          document.getElementById('btn-touch-stun-label').textContent = charges > 0 ? `Travar (${charges}x)` : 'Sem Cargas';
+          btnStun.style.opacity = charges > 0 && !me.frozen ? '1' : '0.4';
+        }
+      }
+
+      // Touch controls no celular
+      if (isTouchDevice) {
+        document.getElementById('stick-left-zone').classList.remove('hidden');
+        document.getElementById('pc-keys-help').classList.add('hidden');
+        touchActions.classList.remove('hidden');
+      } else {
+        document.getElementById('stick-left-zone').classList.add('hidden');
+        document.getElementById('pc-keys-help').classList.remove('hidden');
+        touchActions.classList.add('hidden');
+      }
+
+      // Vinheta de Alerta
+      const vignette = document.getElementById('screen-vignette');
+      const ghost = state.players.find(p => p.role === 'ghost');
+      if (me.frozen) {
+        vignette.className = 'hud-overlay inset-0 frozen-vignette';
+      } else if (ghost && me.role !== 'ghost' && Math.hypot(ghost.x - me.x, ghost.z - me.z) < 12) {
+        vignette.className = 'hud-overlay inset-0 danger-vignette';
+      } else {
+        vignette.className = 'hud-overlay inset-0';
+      }
+    }
+
+    function renderLobbyPlayers3D(players) {
+      const listEl = document.getElementById('players-list');
+      const countEl = document.getElementById('player-count');
+      if (!listEl || !players) return;
+      countEl.textContent = players.length;
+
+      listEl.innerHTML = players.map(p => `
+        <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-zinc-950 border ${p.id === clientId ? 'border-amber-400/60' : 'border-zinc-800'}">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full inline-block" style="background:${p.color}"></span>
+            <span class="text-xs font-semibold text-white">${escapeHtml(p.name)}</span>
+            ${p.id === clientId ? '<span class="text-[10px] px-1 rounded bg-amber-500/20 text-amber-300 font-bold">VOCÊ</span>' : ''}
+            ${p.isBot ? '<span class="text-[10px] px-1 rounded bg-zinc-800 text-zinc-400">BOT</span>' : ''}
+          </div>
+          <span class="text-[11px] font-bold ${p.role === 'ghost' ? 'text-purple-300' : 'text-amber-300'}">
+            ${p.role === 'ghost' ? '👻 Fantasma' : '🔦 Caçador'}
+          </span>
+        </div>
+      `).join('');
+    }
+
+    function selectRole(role) {
+      myRole = role;
+      safeStorageSet('localStorage', 'fm_player_role', myRole);
+      document.getElementById('btn-role-hunter').className = role === 'hunter'
+        ? 'py-2.5 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-lg shadow-amber-500/10'
+        : 'py-2.5 px-3 rounded-xl border border-zinc-800 text-zinc-400 hover:text-white transition flex items-center justify-center gap-1.5';
+      document.getElementById('btn-role-ghost').className = role === 'ghost'
+        ? 'py-2.5 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-lg shadow-purple-500/10'
+        : 'py-2.5 px-3 rounded-xl border border-zinc-800 text-zinc-400 hover:text-white transition flex items-center justify-center gap-1.5';
+
+      if (netMode === 'p2p_client') {
+        pendingCommands.push({ action: 'set_role', role: myRole });
+      } else if (hostEngine.players[clientId]) {
+        hostEngine.players[clientId].role = myRole;
+        hostEngine.players[clientId].color = myRole === 'ghost' ? '#c084fc' : palette[0];
+        broadcastHostState3D();
+      }
+    }
+
+    function updateMyProfile() {
+      const input = document.getElementById('player-name');
+      if (input && input.value.trim()) {
+        myName = input.value.trim().substring(0, 14);
+        safeStorageSet('localStorage', 'fm_player_name', myName);
+        if (hostEngine.players[clientId]) {
+          hostEngine.players[clientId].name = myName;
+          broadcastHostState3D();
+        }
+      }
+    }
+
+    function sendLobbyCommand(action) {
+      if (netMode === 'p2p_client') {
+        pendingCommands.push({ action: action });
+      } else {
+        if (action === 'add_bot') {
+          const list = Object.values(hostEngine.players);
+          if (list.length < 6) {
+            const bid = 'bot_' + Math.floor(100 + Math.random() * 899);
+            hostEngine.players[bid] = {
+              id: bid, name: 'Bot ' + list.length, role: 'hunter', color: palette[list.length % palette.length],
+              x: 0, z: 18, dx: 0, dy: 0, yaw: 0, battery: 100, isBot: true
+            };
+            broadcastHostState3D();
+          }
+        } else if (action === 'clear_bots') {
+          for (const k of Object.keys(hostEngine.players)) {
+            if (hostEngine.players[k].isBot) delete hostEngine.players[k];
+          }
+          broadcastHostState3D();
+        }
+      }
+    }
+
+    // ========================================================================
+    // REDE P2P WEBRTC (PEERJS) PARA CONECTAR CELULARES POR CÓDIGO
+    // ========================================================================
+    function createP2PHostRoom() {
+      const code = Math.floor(1000 + Math.random() * 9000).toString();
+      const peerId = 'fantasma-3d-' + code;
+      setNetMsg('Criando sala ' + code + '...', 'text-zinc-300');
+
+      peer = new Peer(peerId);
+      peer.on('open', () => {
+        netMode = 'p2p_host';
+        document.getElementById('p2p-badge').textContent = 'Host • Sala ' + code;
+        setNetMsg('✅ Sala 3D criada! Código: ' + code, 'text-emerald-400 font-bold');
+      });
+
+      peer.on('connection', (conn) => {
+        conn.on('open', () => {
+          clientConns[conn.peer] = conn;
+          setNetMsg('📱 Dispositivo conectado!', 'text-emerald-300');
+        });
+        conn.on('data', (payload) => {
+          applyClientPayload(payload);
+        });
+        conn.on('close', () => {
+          delete clientConns[conn.peer];
+          delete hostEngine.players[conn.peer];
+          broadcastHostState3D();
+        });
+      });
+    }
+
+    function joinP2PRoom() {
+      const code = document.getElementById('join-code-input').value.trim();
+      if (!code || code.length < 4) {
+        setNetMsg('Digite um código de 4 dígitos!', 'text-amber-400');
+        return;
+      }
+      setNetMsg('Conectando à sala ' + code + '...', 'text-zinc-300');
+      peer = new Peer();
+      peer.on('open', () => {
+        const hostId = 'fantasma-3d-' + code;
+        hostConn = peer.connect(hostId, { reliable: true });
+        hostConn.on('open', () => {
+          netMode = 'p2p_client';
+          document.getElementById('p2p-badge').textContent = 'Conectado • Sala ' + code;
+          setNetMsg('✅ Conectado à sala 3D!', 'text-emerald-400 font-bold');
+        });
+        hostConn.on('data', (snapshot) => {
+          onServerStateUpdate3D(snapshot);
+        });
+      });
+    }
+
+    function setNetMsg(msg, colorClass) {
+      const el = document.getElementById('p2p-status-msg');
+      el.className = 'text-[11px] text-center font-mono h-4 truncate ' + colorClass;
+      el.textContent = msg;
+    }
+
+    function applyClientPayload(payload) {
+      let p = hostEngine.players[payload.id];
+      if (!p) {
+        p = {
+          id: payload.id, name: payload.name || 'Jogador 3D', role: payload.role || 'hunter',
+          color: palette[Object.keys(hostEngine.players).length % palette.length],
+          x: 0, z: 18, dx: 0, dy: 0, yaw: 0, battery: 100, isBot: false
+        };
+        hostEngine.players[payload.id] = p;
+      }
+      p.dx = payload.dx || 0;
+      p.dy = payload.dy || 0;
+      p.yaw = payload.yaw || 0;
+      p.turbo = !!payload.turbo;
+      if (payload.hunterStun) p.hunterStun = true;
+    }
+
+    function start3DGameLoop() {
+      setInterval(() => {
+        // Computa vetor local de movimento
+        let kx = 0, ky = 0;
+        if (keys['w'] || keys['arrowup']) ky -= 1;
+        if (keys['s'] || keys['arrowdown']) ky += 1;
+        if (keys['a'] || keys['arrowleft']) kx -= 1;
+        if (keys['d'] || keys['arrowright']) kx += 1;
+
+        if (kx !== 0 || ky !== 0) {
+          const l = Math.hypot(kx, ky);
+          inputState.dx = kx / l; inputState.dy = ky / l;
+        } else {
+          inputState.dx = stickLeftVec.x;
+          inputState.dy = stickLeftVec.y;
+        }
+
+        const payload = {
+          id: clientId, name: myName, role: myRole,
+          dx: Number(inputState.dx.toFixed(3)),
+          dy: Number(inputState.dy.toFixed(3)),
+          yaw: Number(inputState.yaw.toFixed(3)),
+          pitch: Number(inputState.pitch.toFixed(3)),
+          turbo: inputState.turbo,
+          hunterStun: inputState.hunterStun,
+          commands: pendingCommands.splice(0, pendingCommands.length)
+        };
+        inputState.hunterStun = false;
+
+        if (netMode === 'p2p_client' && hostConn && hostConn.open) {
+          hostConn.send(payload);
+        } else {
+          applyClientPayload(payload);
+          stepHostSimulation3D(0.033);
+          broadcastHostState3D();
+        }
+      }, 33);
+    }
+
+    function tryAutoFullscreen() {
+      try {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      } catch (e) {}
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/[&<>"']/g, s => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[s]));
+    }
+
+    // ========================================================================
+    // INICIALIZAÇÃO
+    // ========================================================================
+    function initGame3D() {
+      const pNameInput = document.getElementById('player-name');
+      if (pNameInput) pNameInput.value = myName;
+      selectRole(myRole);
+
+      initThreeScene();
+      setupControls();
+      start3DGameLoop();
+      requestAnimationFrame(renderLoop3D);
+
+      broadcastHostState3D();
+    }
+
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', initGame3D);
+    } else {
+      initGame3D();
+    }
+  </script>
+</body>
+</html>
